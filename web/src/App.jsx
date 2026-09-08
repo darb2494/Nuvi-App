@@ -93,8 +93,9 @@ export default function App() {
 
   // ── Carga el estado del tenant para el usuario con sesión activa ───────────
   const loadTenantStatus = useCallback(async (currentSession) => {
+    setTenantInfo(undefined) // Mostrar "Verificando..." mientras cargamos
     const { data, error } = await supabase.rpc('fn_get_my_tenant_status')
-    
+
     let tenant_id = null
     if (currentSession?.user?.id) {
       const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('id', currentSession.user.id).single()
@@ -105,8 +106,8 @@ export default function App() {
       setTenantInfo({ ...data, tenant_id })
     } else {
       console.error('[Nuvi] Error fetching tenant status:', error || 'No data returned')
-      setTenantInfo(null) // null significa que falló o no tiene perfil
-      setAuthError('Tu cuenta fue creada pero falta configurar tu perfil y consultorio. Por favor, contacta a soporte o registra la cuenta de nuevo.')
+      setTenantInfo(null)
+      setAuthError('No pudimos verificar tu consultorio. Por favor cierra sesión e intenta de nuevo.')
     }
   }, [])
 
