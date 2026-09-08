@@ -86,9 +86,10 @@ function LoadingScreen({ message = 'Cargando Nuvi...' }) {
 // ── Componente raíz ───────────────────────────────────────────────────────────
 
 export default function App() {
-  const [session,    setSession]    = useState(undefined) // undefined = aún cargando
-  const [tenantInfo, setTenantInfo] = useState(null)      // { is_active, tenant_name, role }
+  const [session,    setSession]    = useState(undefined)
+  const [tenantInfo, setTenantInfo] = useState(undefined) // undefined = cargando, null = sin perfil, objeto = ok
   const [appLoading, setAppLoading] = useState(true)
+  const [authError,  setAuthError]  = useState(null)
 
   // ── Carga el estado del tenant para el usuario con sesión activa ───────────
   const loadTenantStatus = useCallback(async (currentSession) => {
@@ -103,7 +104,9 @@ export default function App() {
     if (!error && data) {
       setTenantInfo({ ...data, tenant_id })
     } else {
-      setTenantInfo(null)
+      console.error('[Nuvi] Error fetching tenant status:', error || 'No data returned')
+      setTenantInfo(null) // null significa que falló o no tiene perfil
+      setAuthError('Tu cuenta fue creada pero falta configurar tu perfil y consultorio. Por favor, contacta a soporte o registra la cuenta de nuevo.')
     }
   }, [])
 
@@ -115,7 +118,16 @@ export default function App() {
     }
 
     // 1. Obtener sesión actual
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      // Si hay error (ej. token malformado), limpiamos la sesión y forzamos logout
+      if (error) {
+        console.warn('[Nuvi] Sesión inválida detectada, limpiando...', error.message)
+        await supabase.auth.signOut()
+        setSession(null)
+        setTenantInfo(null)
+        setAppLoading(false)
+        return
+      }
       setSession(session)
       if (session) await loadTenantStatus(session)
       setAppLoading(false)
@@ -123,7 +135,23 @@ export default function App() {
 
     // 2. Escuchar cambios de sesión (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        // TOKEN_REFRESH_FAILED: el refresh token expiró o es inválido (error 400)
+        // En este caso Supabase manda session = null. Limpiamos todo.
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('[Nuvi] Token refresh falló, cerrando sesión automáticamente')
+          await supabase.auth.signOut()
+          setSession(null)
+          setTenantInfo(null)
+          return
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setSession(null)
+          setTenantInfo(null)
+          return
+        }
+
         setSession(session)
         if (session) {
           await loadTenantStatus(session)
@@ -148,7 +176,26 @@ export default function App() {
   if (!session) return <Auth />
 
   // Con sesión pero aún cargando el estado del tenant
-  if (tenantInfo === null) return <LoadingScreen message="Verificando tu cuenta..." />
+  if (tenantInfo === undefined) return <LoadingScreen message="Verificando tu cuenta..." />
+
+  // Error crítico (ej. el usuario existe en Auth pero no tiene perfil/tenant)
+  if (tenantInfo === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md bg-white border border-red-200 rounded-2xl shadow-sm p-6 text-center">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Error de Perfil</h2>
+          <p className="text-slate-600 text-sm mb-6">{authError || 'No se pudo cargar tu perfil.'}</p>
+          <button 
+            onClick={() => supabase.auth.signOut()} 
+            className="px-5 py-2.5 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
+          >
+            Cerrar Sesión y Volver
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Tenant inactivo → pantalla de aprobación pendiente
   if (!tenantInfo.is_active) {
