@@ -15,7 +15,7 @@ import {
   Bookmark
 } from 'lucide-react'
 
-export default function DashboardLayout({ session, tenantName }) {
+export default function DashboardLayout({ session, tenantName, userName }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const navigate = useNavigate()
@@ -33,6 +33,12 @@ export default function DashboardLayout({ session, tenantName }) {
     { name: 'Recetas', href: '/recetas', icon: Bookmark },
     { name: 'Configuración', href: '/configuracion', icon: Settings },
   ]
+
+  // Obtener el nombre para mostrar
+  const displayName = userName || 
+    (session?.user?.user_metadata?.first_name 
+      ? `${session.user.user_metadata.first_name} ${session.user.user_metadata.last_name || ''}`
+      : 'Nutricionista');
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -142,9 +148,7 @@ export default function DashboardLayout({ session, tenantName }) {
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
                   <div className="px-4 py-3 border-b border-slate-100">
                     <p className="text-sm font-medium text-slate-900 truncate">
-                      {session?.user?.user_metadata?.first_name 
-                        ? `${session.user.user_metadata.first_name} ${session.user.user_metadata.last_name || ''}`
-                        : 'Nutricionista'}
+                      {displayName}
                     </p>
                     <p className="text-xs text-slate-500 truncate mt-0.5">{session?.user?.email}</p>
                   </div>

@@ -127,6 +127,7 @@ export default function App() {
         tenant_name: tenant.name,
         role:        profile.role,
         tenant_id:   profile.tenant_id,
+        first_name:  profile.first_name,
       })
     } catch (e) {
       console.error('[Nuvi] loadTenantStatus exception:', e.message)
@@ -243,7 +244,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<DashboardLayout session={session} tenantName={tenantInfo.tenant_name} />}>
+        <Route element={<DashboardLayout session={session} tenantName={tenantInfo.tenant_name} userName={tenantInfo.first_name} />}>
           <Route path="/" element={<Dashboard />} />
           {/* Aquí puedes agregar las rutas futuras (se irán reemplazando con componentes reales) */}
           <Route path="/pacientes" element={<Pacientes session={session} tenantName={tenantInfo.tenant_name} />} />
