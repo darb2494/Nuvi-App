@@ -1,0 +1,4 @@
+anon public: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZmxmaHFxZ3JxeWprbGVramJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NjgyNTMsImV4cCI6MjEwMDI0NDI1M30.1gkIIoziUdJD1LeiOMbHeM4Ot7FNtWf4OXGqzi-OkcI
+
+
+API URL: https://qwflfhqqgrqyjklekjbh.supabase.co/rest/v1/
