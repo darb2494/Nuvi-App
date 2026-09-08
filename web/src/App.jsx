@@ -169,7 +169,7 @@ export default function App() {
   // Falta .env
   if (isMissingConfig) return <SetupScreen />
 
-  // Cargando sesión inicial o estado del tenant
+  // Cargando estado general inicial
   if (appLoading) return <LoadingScreen />
 
   // Sin sesión → pantalla de Auth
@@ -187,7 +187,10 @@ export default function App() {
           <h2 className="text-xl font-bold text-slate-900 mb-2">Error de Perfil</h2>
           <p className="text-slate-600 text-sm mb-6">{authError || 'No se pudo cargar tu perfil.'}</p>
           <button 
-            onClick={() => supabase.auth.signOut()} 
+            onClick={async () => {
+              await supabase.auth.signOut()
+              window.location.reload()
+            }} 
             className="px-5 py-2.5 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
           >
             Cerrar Sesión y Volver
