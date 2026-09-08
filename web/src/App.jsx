@@ -178,22 +178,31 @@ export default function App() {
   // Con sesión pero aún cargando el estado del tenant
   if (tenantInfo === undefined) return <LoadingScreen message="Verificando tu cuenta..." />
 
-  // Error crítico (ej. el usuario existe en Auth pero no tiene perfil/tenant)
+  // Error crítico (ej. token expirado o perfil faltante) — limpiamos todo y redirigimos al login
   if (tenantInfo === null) {
+    // Limpieza inmediata al renderizar: borra sesión y recarga
+    // Usamos un timeout para que React alcance a mostrar la pantalla brevemente
+    setTimeout(async () => {
+      try { await supabase.auth.signOut() } catch (_) {}
+      localStorage.clear()
+      window.location.replace(window.location.origin)
+    }, 1500)
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md bg-white border border-red-200 rounded-2xl shadow-sm p-6 text-center">
-          <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Error de Perfil</h2>
-          <p className="text-slate-600 text-sm mb-6">{authError || 'No se pudo cargar tu perfil.'}</p>
+        <div className="max-w-md bg-white border border-amber-200 rounded-2xl shadow-sm p-6 text-center">
+          <div className="text-4xl mb-4">🔄</div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Actualizando sesión...</h2>
+          <p className="text-slate-500 text-sm mb-6">Serás redirigido automáticamente en un momento.</p>
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut()
-              window.location.reload()
+            onClick={() => {
+              try { supabase.auth.signOut() } catch (_) {}
+              localStorage.clear()
+              window.location.replace(window.location.origin)
             }} 
             className="px-5 py-2.5 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
           >
-            Cerrar Sesión y Volver
+            Ir al inicio de sesión ahora
           </button>
         </div>
       </div>
