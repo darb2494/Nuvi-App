@@ -93,21 +93,44 @@ export default function App() {
 
   // ── Carga el estado del tenant para el usuario con sesión activa ───────────
   const loadTenantStatus = useCallback(async (currentSession) => {
-    setTenantInfo(undefined) // Mostrar "Verificando..." mientras cargamos
-    const { data, error } = await supabase.rpc('fn_get_my_tenant_status')
+    setTenantInfo(undefined)
+    try {
+      const userId = currentSession?.user?.id
+      if (!userId) { setTenantInfo(null); return }
 
-    let tenant_id = null
-    if (currentSession?.user?.id) {
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('id', currentSession.user.id).single()
-      tenant_id = profile?.tenant_id
-    }
+      // Leer perfil del usuario
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('tenant_id, role, first_name')
+        .eq('id', userId)
+        .single()
 
-    if (!error && data) {
-      setTenantInfo({ ...data, tenant_id })
-    } else {
-      console.error('[Nuvi] Error fetching tenant status:', error || 'No data returned')
+      if (profileErr || !profile?.tenant_id) {
+        console.error('[Nuvi] Profile error:', profileErr?.message)
+        setTenantInfo(null); return
+      }
+
+      // Leer estado del tenant/consultorio
+      const { data: tenant, error: tenantErr } = await supabase
+        .from('tenants')
+        .select('name, is_active')
+        .eq('id', profile.tenant_id)
+        .single()
+
+      if (tenantErr || !tenant) {
+        console.error('[Nuvi] Tenant error:', tenantErr?.message)
+        setTenantInfo(null); return
+      }
+
+      setTenantInfo({
+        is_active:   tenant.is_active,
+        tenant_name: tenant.name,
+        role:        profile.role,
+        tenant_id:   profile.tenant_id,
+      })
+    } catch (e) {
+      console.error('[Nuvi] loadTenantStatus exception:', e.message)
       setTenantInfo(null)
-      setAuthError('No pudimos verificar tu consultorio. Por favor cierra sesión e intenta de nuevo.')
     }
   }, [])
 
