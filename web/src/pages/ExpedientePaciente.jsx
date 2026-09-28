@@ -11,6 +11,8 @@ import PlanNutricional from './PlanNutricional'
 import HistorialPlanes from './HistorialPlanes'
 import SeguimientoClinico from './SeguimientoClinico'
 import CitasPaciente from './CitasPaciente'
+import HistorialEvolucion from '../components/HistorialEvolucion'
+import AntropometriaISAK from '../components/AntropometriaISAK'
 
 // ── Datos Falsos ─────────────────────────────────────────────────────────────
 const weightData = [
@@ -28,6 +30,7 @@ export default function ExpedientePaciente() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('resumen')
   const [planCargado, setPlanCargado] = useState(null)
+  const [anamnesisId, setAnamnesisId] = useState(null)
 
   const handleCargarPlan = (plan) => {
     setPlanCargado(plan)
@@ -99,10 +102,13 @@ export default function ExpedientePaciente() {
             .eq('paciente_id', id)
             .maybeSingle()
             
-          if (!anamnesisError && anamnesisData && anamnesisData.datos_personales) {
-            dp = Array.isArray(anamnesisData.datos_personales) 
-              ? anamnesisData.datos_personales[0] 
-              : anamnesisData.datos_personales;
+          if (!anamnesisError && anamnesisData) {
+            setAnamnesisId(anamnesisData.id)
+            if (anamnesisData.datos_personales) {
+              dp = Array.isArray(anamnesisData.datos_personales) 
+                ? anamnesisData.datos_personales[0] 
+                : anamnesisData.datos_personales;
+            }
           }
         } catch (e) {
           console.warn('No se pudieron obtener datos personales', e)
@@ -149,10 +155,11 @@ export default function ExpedientePaciente() {
   const tabs = [
     { id: 'resumen',    label: 'Resumen'          },
     { id: 'citas',      label: 'Citas'            },
-    { id: 'anamnesis',  label: 'Anamnesis'         },
     { id: 'antropometria', label: 'Antropometría'  },
+    { id: 'anamnesis',  label: 'Anamnesis'         },
     { id: 'seguimiento', label: 'Seguimiento Clínico' },
     { id: 'plan',       label: 'Plan Nutricional'  },
+    { id: 'evolucion',  label: 'Evolución'         },
     { id: 'historial',  label: 'Historial Planes'  },
   ]
 
@@ -662,145 +669,28 @@ export default function ExpedientePaciente() {
         )}
 
         {/* ================================================================
-            PESTAÑA: ANTROPOMETRÍA CLINICA (NUEVA)
+            PESTAÑA: ANTROPOMETRÍA ISAK
             ================================================================ */}
         {activeTab === 'antropometria' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
-            
-            {/* Cabecera Antropometría */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Seguimiento Antropométrico</h2>
-                <p className="text-sm text-slate-500">Histórico de mediciones y composición corporal</p>
-              </div>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center justify-center gap-2 bg-teal-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-teal-700 shadow-sm shadow-teal-200 transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Registrar Nueva Medición
-              </button>
-            </div>
-
-            {/* Tabla Histórico */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 font-semibold bg-slate-50">
-                      <th className="px-6 py-4 whitespace-nowrap">Fecha</th>
-                      <th className="px-4 py-4 whitespace-nowrap">Peso (kg)</th>
-                      <th className="px-4 py-4 whitespace-nowrap">% Grasa</th>
-                      <th className="px-4 py-4 whitespace-nowrap">Masa Musc. (kg)</th>
-                      <th className="px-4 py-4 whitespace-nowrap">Cintura (cm)</th>
-                      <th className="px-4 py-4 whitespace-nowrap">Cadera (cm)</th>
-                      <th className="px-6 py-4 whitespace-nowrap">IMC</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {antropometriaHistory.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3 font-semibold text-slate-900">{row.fecha}</td>
-                        <td className="px-4 py-3 text-slate-700">{row.peso}</td>
-                        <td className="px-4 py-3 text-slate-700 font-medium text-amber-700">{row.grasa}</td>
-                        <td className="px-4 py-3 text-slate-700 font-medium text-emerald-700">{row.muscular}</td>
-                        <td className="px-4 py-3 text-slate-700">{row.cintura}</td>
-                        <td className="px-4 py-3 text-slate-700">{row.cadera}</td>
-                        <td className="px-6 py-3">
-                          <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-xs font-bold">
-                            {row.imc}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Layout Dividido para Visualización Estática (última medición) */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              
-              {/* Esquemático Corporal (SVG Realista) */}
-              <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center relative min-h-[480px]">
-                <h3 className="text-[15px] font-black text-slate-500 uppercase tracking-wide mb-6 mt-2 text-center w-full">Puntos de Referencia</h3>
-                
-                {/* Contenedor relativo para el SVG y las etiquetas */}
-                <div className="relative w-full flex-1 max-w-[280px] mx-auto flex items-center justify-center">
-                  
-                  {/* SVG Silueta Humana Realista */}
-                  <svg viewBox="0 0 200 420" className="w-full h-full drop-shadow-sm">
-                    {/* Silueta Humana dependiente del género (Construida con vectores limpios) */}
-                    {pacienteData.sexo === 'M' || pacienteData.sexo === 'masculino' ? (
-                      <image href="/silueta-masculina.png" x="0" y="0" width="200" height="420" preserveAspectRatio="xMidYMid meet" />
-                    ) : (
-                      <image href="/silueta-femenina.png" x="0" y="0" width="200" height="420" preserveAspectRatio="xMidYMid meet" />
-                    )}
-
-                  </svg>
-                  
-
-                </div>
-              </div>
-
-              {/* Paneles de Datos Última Medición */}
-              <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Panel Circunferencias */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-                    <Scale className="w-4 h-4 text-slate-500" />
-                    <h3 className="font-bold text-slate-800 text-sm">Circunferencias (cm) - Última Med.</h3>
-                  </div>
-                  <div className="p-0">
-                    <table className="w-full text-sm">
-                      <tbody className="divide-y divide-slate-100">
-                        {['Cuello', 'Pecho/Tórax', 'Brazo (rel)', 'Cintura', 'Abdomen', 'Cadera', 'Muslo', 'Pantorrilla'].map((item) => (
-                          <tr key={item} className="hover:bg-slate-50">
-                            <td className="px-5 py-2.5 text-slate-600 font-medium">{item}</td>
-                            <td className="px-5 py-2.5 text-right font-bold text-slate-900">--</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Panel Pliegues y Composición */}
-                <div className="space-y-6">
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-                      <Target className="w-4 h-4 text-slate-500" />
-                      <h3 className="font-bold text-slate-800 text-sm">Composición Corporal</h3>
-                    </div>
-                    <div className="p-5 grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                        <p className="text-xs font-bold text-slate-500 uppercase">Masa Grasa</p>
-                        <p className="text-xl font-black text-amber-600 mt-1">22.5 <span className="text-sm font-medium">%</span></p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                        <p className="text-xs font-bold text-slate-500 uppercase">Masa Muscular</p>
-                        <p className="text-xl font-black text-emerald-600 mt-1">35.1 <span className="text-sm font-medium">kg</span></p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                        <p className="text-xs font-bold text-slate-500 uppercase">IMC</p>
-                        <p className="text-xl font-black text-slate-800 mt-1">25.7</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                        <p className="text-xs font-bold text-slate-500 uppercase">Índice C/C</p>
-                        <p className="text-xl font-black text-slate-800 mt-1">0.86</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </div>
+          <AntropometriaISAK
+            pacienteId={id}
+            anamnesisId={anamnesisId}
+            pacienteSexo={pacienteData.sexo}
+            tenantId={paciente?.tenant_id}
+            onGuardado={() => {}}
+          />
         )}
 
         {/* ================================================================
-            PESTAÑA: SEGUIMIENTO CLINICO (NUEVA)
+            PESTAÑA: EVOLUCIÓN
+            ================================================================ */}
+        {activeTab === 'evolucion' && (
+          <HistorialEvolucion pacienteId={id} />
+        )}
+
+
+        {/* ================================================================
+            PESTAÑA: SEGUIMIENTO CLÍNICO
             ================================================================ */}
         {activeTab === 'seguimiento' && (
           <SeguimientoClinico pacienteId={id} />

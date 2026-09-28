@@ -23,7 +23,10 @@ export const supabase = isMissingConfig
   ? null
   : createClient(supabaseUrl, supabaseKey, {
       auth: {
-        persistSession: true,      // Persiste la sesión en localStorage
-        detectSessionInUrl: true,  // Detecta tokens OAuth en la URL
+        persistSession:    true,   // Persiste la sesión en localStorage
+        autoRefreshToken:  true,   // Refresca el token automáticamente
+        detectSessionInUrl: false, // Solo necesario para flujos OAuth (magic link, Google).
+                                   // Desactivar evita que Supabase re-parsee la URL
+                                   // y dispare onAuthStateChange al recuperar el foco.
       },
     })

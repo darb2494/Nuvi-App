@@ -12,7 +12,7 @@
 //     is_active = true  → <DashboardLayout />   (App principal + react-router)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, isMissingConfig } from './lib/supabaseClient'
 import Auth from './pages/Auth'
@@ -91,14 +91,20 @@ export default function App() {
   const [appLoading, setAppLoading] = useState(true)
   const [authError,  setAuthError]  = useState(null)
 
+  // Ref que indica si el tenant ya fue cargado correctamente al menos una vez.
+  // Evita que TOKEN_REFRESHED (que Supabase dispara al recuperar el foco de la
+  // ventana) vuelva a llamar a loadTenantStatus y reinicie la pantalla.
+  const tenantLoadedRef = useRef(false)
+
+
   // ── Carga el estado del tenant para el usuario con sesión activa ───────────
   const loadTenantStatus = useCallback(async (currentSession) => {
-    setTenantInfo(undefined)
+    // Solo ponemos undefined (spinner) si es la primera carga
+    if (!tenantLoadedRef.current) setTenantInfo(undefined)
     try {
       const userId = currentSession?.user?.id
-      if (!userId) { setTenantInfo(null); return }
+      if (!userId) { setTenantInfo(null); tenantLoadedRef.current = false; return }
 
-      // Leer perfil del usuario
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('tenant_id, role, first_name')
@@ -107,10 +113,9 @@ export default function App() {
 
       if (profileErr || !profile?.tenant_id) {
         console.error('[Nuvi] Profile error:', profileErr?.message)
-        setTenantInfo(null); return
+        setTenantInfo(null); tenantLoadedRef.current = false; return
       }
 
-      // Leer estado del tenant/consultorio
       const { data: tenant, error: tenantErr } = await supabase
         .from('tenants')
         .select('name, is_active')
@@ -119,9 +124,10 @@ export default function App() {
 
       if (tenantErr || !tenant) {
         console.error('[Nuvi] Tenant error:', tenantErr?.message)
-        setTenantInfo(null); return
+        setTenantInfo(null); tenantLoadedRef.current = false; return
       }
 
+      tenantLoadedRef.current = true  // ✅ Tenant cargado exitosamente
       setTenantInfo({
         is_active:   tenant.is_active,
         tenant_name: tenant.name,
@@ -132,6 +138,7 @@ export default function App() {
     } catch (e) {
       console.error('[Nuvi] loadTenantStatus exception:', e.message)
       setTenantInfo(null)
+      tenantLoadedRef.current = false
     }
   }, [])
 
@@ -161,19 +168,32 @@ export default function App() {
     // 2. Escuchar cambios de sesión (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // TOKEN_REFRESH_FAILED: el refresh token expiró o es inválido (error 400)
-        // En este caso Supabase manda session = null. Limpiamos todo.
+        // TOKEN_REFRESHED e INITIAL_SESSION: Supabase los dispara al recuperar
+        // el foco de la ventana o al detectar tokens en URL. Si el tenant ya
+        // fue cargado, ignoramos estos eventos para evitar el reinicio visual.
+        if (
+          (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') &&
+          tenantLoadedRef.current
+        ) {
+          // Solo actualizamos la sesión en memoria, sin tocar tenantInfo
+          setSession(session)
+          return
+        }
+
+        // Token refresh falló (session llega como null con TOKEN_REFRESHED)
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('[Nuvi] Token refresh falló, cerrando sesión automáticamente')
           await supabase.auth.signOut()
           setSession(null)
           setTenantInfo(null)
+          tenantLoadedRef.current = false
           return
         }
 
         if (event === 'SIGNED_OUT') {
           setSession(null)
           setTenantInfo(null)
+          tenantLoadedRef.current = false
           return
         }
 
@@ -182,6 +202,7 @@ export default function App() {
           await loadTenantStatus(session)
         } else {
           setTenantInfo(null)
+          tenantLoadedRef.current = false
         }
       }
     )
