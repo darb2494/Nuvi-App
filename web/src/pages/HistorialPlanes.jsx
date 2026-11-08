@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import {
   Loader2, ClipboardList, Flame, Beef, Droplets, Wheat, X, Calendar,
-  CopyPlus, Trash2, Bookmark, Package, ShoppingCart
+  CopyPlus, Trash2, Bookmark, Package, ShoppingCart, FileText
 } from 'lucide-react'
+import { useReactToPrint } from 'react-to-print'
 import ModalListaCompras from '../components/ModalListaCompras'
+import DossierIntegralPrint from '../components/DossierIntegralPrint'
+import ExportDashboardModal from '../components/ExportDashboardModal'
 
 // ── Mapeo de bloques a etiquetas legibles ──────────────────────────────────────
 const MEAL_LABELS = {
@@ -357,11 +360,34 @@ function DetalleModal({ plan, onClose }) {
 }
 
 // ── Componente Principal: HistorialPlanes ─────────────────────────────────────
-export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
-  const [planes, setPlanes]           = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [planDetalle, setPlanDetalle] = useState(null)
-  const [deletingId, setDeletingId]   = useState(null)
+export default function HistorialPlanes({ pacienteId, paciente, pacienteData, onCargarPlan }) {
+  const [planes, setPlanes]                     = useState([])
+  const [loading, setLoading]                   = useState(true)
+  const [planDetalle, setPlanDetalle]           = useState(null)
+  const [deletingId, setDeletingId]             = useState(null)
+  const [planParaExportar, setPlanParaExportar] = useState(null)
+  const [showExportModal, setShowExportModal]   = useState(false)
+  const [printConfig, setPrintConfig]           = useState(null)
+
+  const dossierRef = useRef(null)
+
+  const handlePrintAction = useReactToPrint({
+    contentRef: dossierRef,
+    documentTitle: `Dossier_Plan_${planParaExportar?.fecha_creacion ? new Date(planParaExportar.fecha_creacion).toISOString().split('T')[0] : 'Nutricional'}`,
+  })
+
+  const handleAbrirExport = (plan) => {
+    setPlanParaExportar(plan)
+    setShowExportModal(true)
+  }
+
+  const handleGenerarPDF = (configuracion) => {
+    setPrintConfig(configuracion)
+    setShowExportModal(false)
+    setTimeout(() => {
+      handlePrintAction()
+    }, 150)
+  }
 
   useEffect(() => {
     if (!pacienteId) return
@@ -374,7 +400,8 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
           .eq('paciente_id', pacienteId)
           .order('fecha_creacion', { ascending: false })
         if (error) throw error
-        setPlanes(data || [])
+        const sorted = (data || []).sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion))
+        setPlanes(sorted)
       } catch (err) {
         console.error('Error al cargar historial:', err)
       } finally {
@@ -398,6 +425,7 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
       if (error) throw error
       setPlanes(prev => prev.filter(p => p.id !== plan.id))
       if (planDetalle?.id === plan.id) setPlanDetalle(null)
+      if (planParaExportar?.id === plan.id) setPlanParaExportar(null)
     } catch (err) {
       console.error('Error al eliminar plan:', err)
       alert(`Error al eliminar: ${err.message}`)
@@ -428,13 +456,34 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
     )
   }
 
+  const planesOrdenados = [...planes].sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion))
+
+  const pacienteNombre = paciente 
+    ? `${paciente.first_name || ''} ${paciente.last_name || ''}`.trim() 
+    : (pacienteData?.nombre || 'Paciente')
+
+  const datosParaImprimir = planParaExportar ? {
+    pacienteId,
+    nombre: pacienteNombre,
+    edad: pacienteData?.edad || '--',
+    sexo: pacienteData?.sexo || 'M',
+    peso: pacienteData?.peso || 70,
+    talla: pacienteData?.altura || 170,
+    fecha: formatFecha(planParaExportar.fecha_creacion),
+    plan: planParaExportar,
+    requerimientos: planParaExportar.requerimientos,
+    menu: planParaExportar.menu,
+    paciente,
+    pacienteData,
+  } : null
+
   return (
     <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in duration-300 pb-10">
 
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Historial de Planes</h2>
-          <p className="text-sm text-slate-500">{planes.length} plan{planes.length > 1 ? 'es' : ''} guardado{planes.length > 1 ? 's' : ''}</p>
+          <p className="text-sm text-slate-500">{planesOrdenados.length} plan{planesOrdenados.length > 1 ? 'es' : ''} guardado{planesOrdenados.length > 1 ? 's' : ''}</p>
         </div>
       </div>
 
@@ -443,7 +492,7 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
         <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200" />
 
         <div className="space-y-4">
-          {planes.map((plan, idx) => {
+          {planesOrdenados.map((plan, idx) => {
             const req    = plan.requerimientos || {}
             const bloques = plan.bloques_activos || Object.keys(plan.menu || {})
             const isDeleting = deletingId === plan.id
@@ -474,7 +523,7 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
                         onClick={() => handleEliminar(plan)}
                         disabled={isDeleting}
                         title="Eliminar plan"
-                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                       >
                         {isDeleting
                           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -515,11 +564,20 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
                         })}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Exportar Dossier de este plan */}
+                        <button
+                          onClick={() => handleAbrirExport(plan)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:border-teal-500 hover:text-teal-600 bg-white text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                          title="Exportar dossier de este plan específico"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-teal-600" />
+                          📄 Exportar Dossier
+                        </button>
                         {/* Ver Menú */}
                         <button
                           onClick={() => setPlanDetalle(plan)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                         >
                           <ClipboardList className="w-3.5 h-3.5" />
                           Ver Menú
@@ -527,7 +585,7 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
                         {/* Cargar como base */}
                         <button
                           onClick={() => onCargarPlan?.(plan)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                         >
                           <CopyPlus className="w-3.5 h-3.5" />
                           Usar como base
@@ -545,6 +603,31 @@ export default function HistorialPlanes({ pacienteId, onCargarPlan }) {
       {/* Modal de Detalle */}
       {planDetalle && (
         <DetalleModal plan={planDetalle} onClose={() => setPlanDetalle(null)} />
+      )}
+
+      {/* Modal de Configuración de Exportación */}
+      {showExportModal && (
+        <ExportDashboardModal
+          isOpen={showExportModal}
+          onClose={() => {
+            setShowExportModal(false)
+            setPlanParaExportar(null)
+          }}
+          onExport={handleGenerarPDF}
+          pacienteNombre={pacienteNombre}
+        />
+      )}
+
+      {/* Plantilla Maestra Oculta para Impresión (Off-Screen absoluto para Recharts) */}
+      {planParaExportar && (
+        <div className="absolute -left-[10000px] top-0 print:static print:block w-full">
+          <DossierIntegralPrint
+            ref={dossierRef}
+            config={printConfig}
+            datos={datosParaImprimir}
+            data={datosParaImprimir}
+          />
+        </div>
       )}
     </div>
   )

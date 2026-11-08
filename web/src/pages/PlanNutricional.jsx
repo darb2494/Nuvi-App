@@ -1469,6 +1469,7 @@ export default function PlanNutricional({ pacienteId, tenantId, pacienteData, pl
         bloques_activos: activeBlocks,
         requerimientos,
         menu: menuPayload,
+        fecha_creacion: new Date().toISOString(), // Asignación explícita de fecha real actual
       }
 
       const { error } = await supabase

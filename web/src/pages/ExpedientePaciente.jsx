@@ -817,6 +817,8 @@ export default function ExpedientePaciente() {
         {activeTab === 'historial' && (
           <HistorialPlanes 
             pacienteId={id} 
+            paciente={paciente}
+            pacienteData={pacienteData}
             onCargarPlan={handleCargarPlan}
           />
         )}
