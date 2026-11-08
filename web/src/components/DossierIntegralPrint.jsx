@@ -31,12 +31,14 @@ const printStyles = `
   }
 `
 
-const DossierIntegralPrint = forwardRef(({ data, config }, ref) => {
-  if (!data) return null
+const DossierIntegralPrint = forwardRef(({ data, datos, config = {} }, ref) => {
+  const patientData = data || datos
+  const activeConfig = config || {}
+  if (!patientData) return null
 
   // Helper para formato de números
   const fmt = (val, dec = 1) => (val != null && isFinite(val) ? Number(val).toFixed(dec).replace('.', ',') : '--')
-  const fecha = data.fecha || new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+  const fecha = patientData.fecha || new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 
   // Mocks o mapeos temporales basados en los datos del historial
   const SeccionBasicos = () => (
@@ -102,19 +104,19 @@ const DossierIntegralPrint = forwardRef(({ data, config }, ref) => {
           <tbody>
             <tr className="border-b border-slate-100">
               <td className="py-2 font-medium">Peso Total</td>
-              <td className="py-2 text-right font-bold text-slate-800">{fmt(data.peso)} kg</td>
+              <td className="py-2 text-right font-bold text-slate-800">{fmt(patientData.peso)} kg</td>
             </tr>
             <tr className="border-b border-slate-100">
               <td className="py-2 font-medium">Porcentaje de Grasa</td>
-              <td className="py-2 text-right font-bold text-rose-600">{fmt(data.porcentajeGrasa)} %</td>
+              <td className="py-2 text-right font-bold text-rose-600">{fmt(patientData.porcentajeGrasa)} %</td>
             </tr>
             <tr className="border-b border-slate-100">
               <td className="py-2 font-medium">Masa Muscular</td>
-              <td className="py-2 text-right font-bold text-teal-600">{fmt(data.masaMuscular)} kg</td>
+              <td className="py-2 text-right font-bold text-teal-600">{fmt(patientData.masaMuscular)} kg</td>
             </tr>
             <tr className="border-b border-slate-100">
               <td className="py-2 font-medium">Índice Cintura-Cadera (ICC)</td>
-              <td className="py-2 text-right font-bold">{fmt(data.icc, 2)}</td>
+              <td className="py-2 text-right font-bold">{fmt(patientData.icc, 2)}</td>
             </tr>
           </tbody>
         </table>
@@ -129,7 +131,7 @@ const DossierIntegralPrint = forwardRef(({ data, config }, ref) => {
         <h2 className="text-lg font-black text-slate-800 uppercase">Índices Clínicos Avanzados</h2>
       </div>
       <div className="grid grid-cols-2 gap-4 text-xs">
-        <div className="border border-slate-200 p-3 rounded-lg"><span className="text-slate-500 block">ICC (Cintura/Cadera)</span><span className="font-bold text-sm">{fmt(data.icc, 2)}</span></div>
+        <div className="border border-slate-200 p-3 rounded-lg"><span className="text-slate-500 block">ICC (Cintura/Cadera)</span><span className="font-bold text-sm">{fmt(patientData.icc, 2)}</span></div>
         <div className="border border-slate-200 p-3 rounded-lg"><span className="text-slate-500 block">Índice Adiposo/Muscular</span><span className="font-bold text-sm">--</span></div>
       </div>
     </div>
@@ -150,7 +152,7 @@ const DossierIntegralPrint = forwardRef(({ data, config }, ref) => {
         </div>
         <div className="text-right">
           <p className="text-xs font-bold text-slate-800">Fecha de Consulta: {fecha}</p>
-          <p className="text-[10px] text-slate-500 font-medium">Especialista Tratante</p>
+          <p className="text-[10px] text-slate-500 font-medium">{patientData.nombre || 'Especialista Tratante'}</p>
         </div>
       </div>
 
@@ -162,10 +164,10 @@ const DossierIntegralPrint = forwardRef(({ data, config }, ref) => {
       {/* CONTENIDO CON PADDING SUPERIOR */}
       <div className="print-content text-sm print:pt-4">
         
-        {config.basicos && <SeccionBasicos />}
-        {config.plan && <SeccionPlan />}
-        {config.antropometria && <SeccionAntropometria />}
-        {config.indices && <SeccionIndices />}
+        {activeConfig.basicos && <SeccionBasicos />}
+        {activeConfig.plan && <SeccionPlan />}
+        {activeConfig.antropometria && <SeccionAntropometria />}
+        {activeConfig.indices && <SeccionIndices />}
 
       </div>
     </div>

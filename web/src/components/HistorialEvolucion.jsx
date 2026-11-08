@@ -39,8 +39,11 @@ export default function HistorialEvolucion({ pacienteId }) {
   })
 
   const handleGenerarPDF = (configuracion) => {
-    console.log('Configuración recibida del Dossier en HistorialEvolucion:', configuracion)
+    setPrintConfig(configuracion)
     setShowExportModal(false)
+    setTimeout(() => {
+      handlePrint()
+    }, 150)
   }
 
   const openPrintModal = (registro) => {

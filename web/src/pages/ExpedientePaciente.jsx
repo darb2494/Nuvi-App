@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { 
   ArrowLeft, CalendarPlus, User, Phone, Mail, Activity, Scale, Calendar, Target, FileEdit, Save, Plus, ChevronDown, ChevronUp, X, Check
 } from 'lucide-react'
+import { useReactToPrint } from 'react-to-print'
+import DossierIntegralPrint from '../components/DossierIntegralPrint'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts'
@@ -33,10 +35,23 @@ export default function ExpedientePaciente() {
   const [planCargado, setPlanCargado] = useState(null)
   const [anamnesisId, setAnamnesisId] = useState(null)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [printConfig, setPrintConfig] = useState(null)
+
+  const dossierRef = useRef(null)
+
+  const handlePrintAction = useReactToPrint({
+    contentRef: dossierRef,
+    documentTitle: `Dossier_${paciente?.first_name || 'Paciente'}_${paciente?.last_name || ''}`.trim()
+  })
 
   const handleGenerarPDF = (configuracion) => {
-    console.log('📄 Configuración seleccionada para generar Dossier PDF:', configuracion)
-    setShowExportModal(false)
+    setPrintConfig(configuracion) // 1. Actualiza los datos del componente oculto
+    setShowExportModal(false)     // 2. Cierra el modal visual
+    
+    // 3. Pequeño timeout para permitir que React renderice el Dossier oculto con la nueva config antes de abrir la ventana de impresión
+    setTimeout(() => {
+      handlePrintAction()
+    }, 150)
   }
 
   const handleCargarPlan = (plan) => {
@@ -212,6 +227,27 @@ export default function ExpedientePaciente() {
         <Link to="/pacientes" className="text-teal-600 hover:underline mt-2 block">Volver</Link>
       </div>
     )
+  }
+
+  const nombrePaciente = paciente 
+    ? `${paciente.first_name || ''} ${paciente.last_name || ''}`.trim() 
+    : 'Paciente'
+
+  const datosTotalesDelPaciente = {
+    pacienteId: id,
+    nombre: nombrePaciente,
+    edad: pacienteData.edad,
+    sexo: pacienteData.sexo,
+    peso: pacienteData.peso || formAntro.peso || 70,
+    talla: pacienteData.altura || formAntro.talla || 170,
+    imc: imcCalc !== '--' ? imcCalc : '24.2',
+    porcentajeGrasa: grasaCalc !== '--' ? grasaCalc : '21.5',
+    masaMuscular: muscularCalc !== '--' ? muscularCalc : '34.2',
+    icc: iccCalc !== '--' ? iccCalc : '0.85',
+    fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+    paciente,
+    pacienteData,
+    formAntro,
   }
 
   return (
@@ -875,6 +911,16 @@ export default function ExpedientePaciente() {
           pacienteNombre={paciente?.nombre_completo || paciente?.nombre}
         />
       )}
+
+      {/* ── Plantilla Maestra Oculta para Impresión ── */}
+      <div className="hidden print:block">
+        <DossierIntegralPrint
+          ref={dossierRef}
+          config={printConfig}
+          datos={datosTotalesDelPaciente}
+          data={datosTotalesDelPaciente}
+        />
+      </div>
 
     </div>
   )
