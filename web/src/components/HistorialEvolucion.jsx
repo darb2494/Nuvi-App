@@ -378,9 +378,9 @@ export default function HistorialEvolucion({ pacienteId }) {
         />
       )}
 
-      {/* PLANTILLA MAESTRA OCULTA PARA IMPRESIÓN */}
-      <div className="hidden print:block">
-        <DossierIntegralPrint ref={printRef} data={printData} config={printConfig} />
+      {/* PLANTILLA MAESTRA OCULTA PARA IMPRESIÓN (Off-Screen absoluto para Recharts) */}
+      <div className="absolute -left-[10000px] top-0 print:static print:block w-full">
+        <DossierIntegralPrint ref={printRef} data={printData} datos={printData} config={printConfig} />
       </div>
 
     </div>

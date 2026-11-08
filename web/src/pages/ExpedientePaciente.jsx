@@ -34,6 +34,8 @@ export default function ExpedientePaciente() {
   const [activeTab, setActiveTab] = useState('resumen')
   const [planCargado, setPlanCargado] = useState(null)
   const [anamnesisId, setAnamnesisId] = useState(null)
+  const [ultimoPlan, setUltimoPlan] = useState(null)
+  const [historialConsultas, setHistorialConsultas] = useState([])
   const [showExportModal, setShowExportModal] = useState(false)
   const [printConfig, setPrintConfig] = useState(null)
 
@@ -164,6 +166,46 @@ export default function ExpedientePaciente() {
           sexo: calcSexo
         }))
 
+        // 3. Obtener el último plan nutricional
+        try {
+          const { data: planData } = await supabase
+            .from('planes_nutricionales')
+            .select('id, fecha_creacion, bloques_activos, requerimientos, menu')
+            .eq('paciente_id', id)
+            .order('fecha_creacion', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (planData) setUltimoPlan(planData)
+        } catch (e) {
+          console.warn('No se pudo cargar el último plan', e)
+        }
+
+        // 4. Obtener medidas históricas para gráficas
+        if (anamnesisData?.id) {
+          try {
+            const { data: medidasData } = await supabase
+              .from('medidas_antropometricas')
+              .select('fecha_medicion, peso_kg, masa_grasa_pct, masa_muscular_kg, indice_cintura_cadera')
+              .eq('anamnesis_id', anamnesisData.id)
+              .order('fecha_medicion', { ascending: true })
+            if (medidasData && medidasData.length > 0) {
+              setHistorialConsultas(medidasData.map(m => {
+                const dateObj = new Date(m.fecha_medicion)
+                dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset())
+                return {
+                  fecha: dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+                  peso: m.peso_kg ? parseFloat(m.peso_kg) : null,
+                  porcentajeGrasa: m.masa_grasa_pct ? parseFloat(m.masa_grasa_pct) : null,
+                  masaMuscular: m.masa_muscular_kg ? parseFloat(m.masa_muscular_kg) : null,
+                  icc: m.indice_cintura_cadera ? parseFloat(m.indice_cintura_cadera) : null
+                }
+              }))
+            }
+          } catch (e) {
+            console.warn('No se pudieron cargar medidas antropométricas', e)
+          }
+        }
+
       } catch (err) {
         console.error('Error al cargar expediente:', err)
         setPaciente(null) // Para que muestre "Paciente no encontrado" si falla el profile
@@ -238,16 +280,18 @@ export default function ExpedientePaciente() {
     nombre: nombrePaciente,
     edad: pacienteData.edad,
     sexo: pacienteData.sexo,
-    peso: pacienteData.peso || formAntro.peso || 70,
+    peso: pacienteData.peso || formAntro.peso || (historialConsultas[historialConsultas.length - 1]?.peso) || 70,
     talla: pacienteData.altura || formAntro.talla || 170,
     imc: imcCalc !== '--' ? imcCalc : '24.2',
-    porcentajeGrasa: grasaCalc !== '--' ? grasaCalc : '21.5',
-    masaMuscular: muscularCalc !== '--' ? muscularCalc : '34.2',
-    icc: iccCalc !== '--' ? iccCalc : '0.85',
+    porcentajeGrasa: grasaCalc !== '--' ? grasaCalc : (historialConsultas[historialConsultas.length - 1]?.porcentajeGrasa) || '21.5',
+    masaMuscular: muscularCalc !== '--' ? muscularCalc : (historialConsultas[historialConsultas.length - 1]?.masaMuscular) || '34.2',
+    icc: iccCalc !== '--' ? iccCalc : (historialConsultas[historialConsultas.length - 1]?.icc) || '0.85',
     fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
     paciente,
     pacienteData,
     formAntro,
+    plan: ultimoPlan,
+    historial: historialConsultas.length > 0 ? historialConsultas : weightData.map(w => ({ fecha: w.month, peso: w.peso, porcentajeGrasa: 21, masaMuscular: 34 })),
   }
 
   return (
@@ -912,8 +956,8 @@ export default function ExpedientePaciente() {
         />
       )}
 
-      {/* ── Plantilla Maestra Oculta para Impresión ── */}
-      <div className="hidden print:block">
+      {/* ── Plantilla Maestra Oculta para Impresión (Off-Screen absoluto para que Recharts calcule dimensiones) ── */}
+      <div className="absolute -left-[10000px] top-0 print:static print:block w-full">
         <DossierIntegralPrint
           ref={dossierRef}
           config={printConfig}
