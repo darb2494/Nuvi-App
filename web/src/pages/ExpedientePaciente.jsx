@@ -13,6 +13,7 @@ import SeguimientoClinico from './SeguimientoClinico'
 import CitasPaciente from './CitasPaciente'
 import HistorialEvolucion from '../components/HistorialEvolucion'
 import AntropometriaISAK from '../components/AntropometriaISAK'
+import ExportDashboardModal from '../components/ExportDashboardModal'
 
 // ── Datos Falsos ─────────────────────────────────────────────────────────────
 const weightData = [
@@ -31,6 +32,12 @@ export default function ExpedientePaciente() {
   const [activeTab, setActiveTab] = useState('resumen')
   const [planCargado, setPlanCargado] = useState(null)
   const [anamnesisId, setAnamnesisId] = useState(null)
+  const [showExportModal, setShowExportModal] = useState(false)
+
+  const handleGenerarPDF = (configuracion) => {
+    console.log('📄 Configuración seleccionada para generar Dossier PDF:', configuracion)
+    setShowExportModal(false)
+  }
 
   const handleCargarPlan = (plan) => {
     setPlanCargado(plan)
@@ -236,7 +243,13 @@ export default function ExpedientePaciente() {
             </div>
           </div>
         </div>
-        <div className="relative z-10 w-full sm:w-auto">
+        <div className="relative z-10 w-full sm:w-auto flex flex-wrap items-center gap-3">
+          <button 
+            onClick={() => setShowExportModal(true)}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-sm shadow-teal-200 transition-all cursor-pointer"
+          >
+            📄 Exportar Dossier
+          </button>
           <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 shadow-sm transition-all cursor-pointer">
             <CalendarPlus className="w-4 h-4 text-teal-600" /> Agendar Cita
           </button>
@@ -851,6 +864,16 @@ export default function ExpedientePaciente() {
 
           </div>
         </div>
+      )}
+
+      {/* ── Modal de Exportación de Dossier PDF ── */}
+      {showExportModal && (
+        <ExportDashboardModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleGenerarPDF}
+          pacienteNombre={paciente?.nombre_completo || paciente?.nombre}
+        />
       )}
 
     </div>

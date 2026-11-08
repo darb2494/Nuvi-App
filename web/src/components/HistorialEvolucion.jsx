@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { TrendingDown, TrendingUp, Activity, Scale, Dumbbell, User, Info, Printer, X, FileText } from 'lucide-react'
 import { useReactToPrint } from 'react-to-print'
 import DossierIntegralPrint from './DossierIntegralPrint'
+import ExportDashboardModal from './ExportDashboardModal'
 import {
   ResponsiveContainer,
   LineChart,
@@ -21,7 +22,7 @@ export default function HistorialEvolucion({ pacienteId }) {
   const [metricaSeleccionada, setMetricaSeleccionada] = useState('peso')
 
   // Estado para Dossier Integral PDF
-  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [printData, setPrintData] = useState(null)
   const [printConfig, setPrintConfig] = useState({
     basicos: true,
@@ -34,12 +35,17 @@ export default function HistorialEvolucion({ pacienteId }) {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Dossier_Integral_${printData?.fecha || 'Global'}`,
-    onAfterPrint: () => setShowPrintModal(false)
+    onAfterPrint: () => setShowExportModal(false)
   })
+
+  const handleGenerarPDF = (configuracion) => {
+    console.log('Configuración recibida del Dossier en HistorialEvolucion:', configuracion)
+    setShowExportModal(false)
+  }
 
   const openPrintModal = (registro) => {
     setPrintData(registro)
-    setShowPrintModal(true)
+    setShowExportModal(true)
   }
 
   useEffect(() => {
@@ -180,14 +186,19 @@ export default function HistorialEvolucion({ pacienteId }) {
         </div>
         
         <button
-          onClick={() => openPrintModal(historialConsultas[historialConsultas.length - 1])}
+          onClick={() => {
+            if (historialConsultas.length > 0) {
+              setPrintData(historialConsultas[historialConsultas.length - 1])
+            }
+            setShowExportModal(true)
+          }}
           disabled={isEmpty}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all whitespace-nowrap
             ${!isEmpty 
-              ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-teal-200' 
+              ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-teal-200 cursor-pointer' 
               : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'}`}
         >
-          <Printer className="w-4 h-4" /> 📄 Exportar Dossier a PDF
+          📄 Exportar Dossier
         </button>
       </div>
 
@@ -356,52 +367,12 @@ export default function HistorialEvolucion({ pacienteId }) {
       )}
 
       {/* MODAL DE CONFIGURACIÓN DE EXPORTACIÓN DOSSIER */}
-      {showPrintModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-black text-slate-800 flex items-center gap-2">
-                <Printer className="w-5 h-5 text-teal-600" /> Exportar Dossier Integral
-              </h3>
-              <button onClick={() => setShowPrintModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-slate-500 mb-4">Selecciona los módulos a incluir en el PDF general para la consulta del <b>{printData?.fecha}</b>:</p>
-              
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" checked={printConfig.basicos} onChange={e => setPrintConfig(prev => ({...prev, basicos: e.target.checked}))} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
-                <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Datos Básicos y Anamnesis</span>
-              </label>
-              
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" checked={printConfig.plan} onChange={e => setPrintConfig(prev => ({...prev, plan: e.target.checked}))} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
-                <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Plan Nutricional (Requerimientos)</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" checked={printConfig.antropometria} onChange={e => setPrintConfig(prev => ({...prev, antropometria: e.target.checked}))} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
-                <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Antropometría ISAK y Composición Corporal</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" checked={printConfig.indices} onChange={e => setPrintConfig(prev => ({...prev, indices: e.target.checked}))} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
-                <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Índices Clínicos Avanzados</span>
-              </label>
-            </div>
-
-            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-              <button onClick={() => setShowPrintModal(false)} className="px-4 py-2 text-slate-600 font-bold text-sm hover:bg-slate-100 rounded-lg transition-colors">
-                Cancelar
-              </button>
-              <button onClick={handlePrint} className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-lg shadow-sm transition-all flex items-center gap-2">
-                <Printer className="w-4 h-4" /> Generar Documento
-              </button>
-            </div>
-          </div>
-        </div>
+      {showExportModal && (
+        <ExportDashboardModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleGenerarPDF}
+        />
       )}
 
       {/* PLANTILLA MAESTRA OCULTA PARA IMPRESIÓN */}
