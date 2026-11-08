@@ -82,20 +82,143 @@ function MacroChips({ m, size = 'sm' }) {
   )
 }
 
+// ── Sub-componente: renderiza un bloque (ej. Desayuno) con sus entries ──────────
+function BloqueDetalle({ bloque, entries, meta }) {
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden mb-3">
+      {/* Cabecera del bloque */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${meta.color}`}>
+          {meta.label}
+        </span>
+        {entries.length > 0 && (
+          <MacroChips m={sumMacros(entries.map(getMacrosEntry))} size="xs" />
+        )}
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="px-4 py-3 text-sm text-slate-400 italic">Sin entradas registradas.</p>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {entries.map((entry, idx) => {
+            const entryMacros = getMacrosEntry(entry)
+            const isReceta = entry.tipo === 'receta'
+
+            return (
+              <div key={idx} className={isReceta ? 'bg-indigo-50/30' : ''}>
+                {/* Fila principal: Receta o Alimento suelto */}
+                <div className={`flex items-center justify-between px-4 py-2.5 ${isReceta ? 'border-b border-indigo-100/60' : ''}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isReceta ? (
+                      <div className="bg-indigo-100 text-indigo-600 p-1 rounded flex-shrink-0">
+                        <Bookmark className="w-3 h-3" />
+                      </div>
+                    ) : (
+                      <div className="bg-slate-100 text-slate-500 p-1 rounded flex-shrink-0">
+                        <Package className="w-3 h-3" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className={`text-sm font-bold truncate ${isReceta ? 'text-indigo-900' : 'text-slate-800'}`}>
+                        {entry.nombre}
+                      </p>
+                      {!isReceta && entry.cantidad && (
+                        <p className="text-[10px] text-slate-400">{entry.cantidad}g</p>
+                      )}
+                      {isReceta && (
+                        <p className="text-[10px] text-indigo-400 font-semibold">
+                          {(entry.ingredientes || []).length} ingredientes
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <MacroChips m={entryMacros} size="xs" />
+                </div>
+
+                {/* Sub-lista de ingredientes (solo para recetas) */}
+                {isReceta && (entry.ingredientes || []).length > 0 && (
+                  <table className="w-full text-xs border-collapse">
+                    <tbody>
+                      {(entry.ingredientes || []).map((ing, iIdx) => {
+                        const ingM = ing.macros ?? calcIngMacros(ing)
+                        return (
+                          <tr key={iIdx} className="hover:bg-indigo-50/50 border-b border-indigo-50 last:border-0">
+                            <td className="pl-10 pr-3 py-1.5 text-slate-600 font-medium max-w-[180px]">
+                              <span className="truncate block" title={ing.nombre}>↳ {ing.nombre}</span>
+                            </td>
+                            <td className="px-3 py-1.5 text-slate-400 whitespace-nowrap">
+                              {ing.cantidad}g
+                            </td>
+                            <td className="px-2 py-1.5 text-orange-600 font-bold text-right whitespace-nowrap">
+                              {Math.round(ingM.calorias)} kcal
+                            </td>
+                            <td className="px-2 py-1.5 text-red-600 font-bold text-right whitespace-nowrap">
+                              {Math.round(ingM.proteinas)}g P
+                            </td>
+                            <td className="px-2 py-1.5 text-amber-600 font-bold text-right whitespace-nowrap">
+                              {Math.round(ingM.grasas)}g G
+                            </td>
+                            <td className="pr-4 py-1.5 text-lime-700 font-bold text-right whitespace-nowrap">
+                              {Math.round(ingM.carbohidratos)}g C
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Normaliza plan.menu al formato {bloque: [entries]} independientemente de si
+// viene como objeto plano (formato antiguo) o como array de menús (formato nuevo).
+// Si es multi-menú, fusiona todos los menús mostrando cada uno con su nombre.
+function normalizePlanMenu(rawMenu) {
+  if (!rawMenu) return { mergedMeals: {}, multiMenus: [] }
+
+  // Formato nuevo: array de { id, nombre, meals: { bloque: [...] } }
+  if (Array.isArray(rawMenu)) {
+    const multiMenus = rawMenu
+    // Para el cálculo de totales y los bloques_activos usamos el primer menú como referencia
+    // pero mostramos cada menú por separado en el render
+    return { mergedMeals: rawMenu[0]?.meals || {}, multiMenus }
+  }
+
+  // Formato antiguo: { bloque: [...entries] }
+  return { mergedMeals: rawMenu, multiMenus: [] }
+}
+
 // ── Modal de Detalle de Plan (Lectura Jerárquica) ──────────────────────────────
 function DetalleModal({ plan, onClose }) {
   const [comprasOpen, setComprasOpen] = useState(false)
   if (!plan) return null
-  const menu = plan.menu || {}
-  const req  = plan.requerimientos || {}
-  const activeBlocks = plan.bloques_activos || Object.keys(menu)
 
-  // Calcula el total real del menú sumando todas las entradas de todos los bloques activos
-  const totalMenu = sumMacros(
-    (plan.bloques_activos || Object.keys(menu)).flatMap(bloque =>
-      (menu[bloque] || []).map(getMacrosEntry)
-    )
-  )
+  const { mergedMeals, multiMenus } = normalizePlanMenu(plan.menu)
+  const isMultiMenu = multiMenus.length > 0
+
+  const req  = plan.requerimientos || {}
+  const activeBlocks = plan.bloques_activos || Object.keys(mergedMeals)
+
+  // Calcula el total real del menú sumando TODOS los menús y todos sus bloques activos
+  const totalMenu = isMultiMenu
+    ? sumMacros(
+        multiMenus.flatMap(m =>
+          activeBlocks.flatMap(bloque =>
+            ((m.meals || {})[bloque] || []).map(getMacrosEntry)
+          )
+        )
+      )
+    : sumMacros(
+        activeBlocks.flatMap(bloque =>
+          (mergedMeals[bloque] || []).map(getMacrosEntry)
+        )
+      )
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
@@ -174,96 +297,51 @@ function DetalleModal({ plan, onClose }) {
           </div>
         </div>
 
-        {/* Bloques del menú — renderizado jerárquico */}
+        {/* Bloques del menú — renderizado jerárquico, soporta multi-menú y formato antiguo */}
         <div className="p-6 space-y-5">
-          {(plan.bloques_activos || Object.keys(menu)).map((bloque) => {
-            const entries = menu[bloque] || []
-            const meta = MEAL_LABELS[bloque] || { label: bloque, color: 'bg-slate-100 text-slate-600' }
-            const bloqueTotal = sumMacros(entries.map(getMacrosEntry))
-
-            return (
-              <div key={bloque} className="border border-slate-200 rounded-xl overflow-hidden">
-                {/* Cabecera del bloque */}
-                <div className="flex items-center px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${meta.color}`}>
-                    {meta.label}
-                  </span>
-                </div>
-
-                {entries.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-slate-400 italic">Sin entradas registradas.</p>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {entries.map((entry, idx) => {
-                      const entryMacros = getMacrosEntry(entry)
-                      const isReceta = entry.tipo === 'receta'
-
-                      return (
-                        <div key={idx} className={isReceta ? 'bg-indigo-50/30' : ''}>
-                          {/* Fila principal: Receta o Alimento suelto */}
-                          <div className={`flex items-center justify-between px-4 py-2.5 ${isReceta ? 'border-b border-indigo-100/60' : ''}`}>
-                            <div className="flex items-center gap-2 min-w-0">
-                              {isReceta ? (
-                                <div className="bg-indigo-100 text-indigo-600 p-1 rounded flex-shrink-0">
-                                  <Bookmark className="w-3 h-3" />
-                                </div>
-                              ) : (
-                                <div className="bg-slate-100 text-slate-500 p-1 rounded flex-shrink-0">
-                                  <Package className="w-3 h-3" />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className={`text-sm font-bold truncate ${isReceta ? 'text-indigo-900' : 'text-slate-800'}`}>
-                                  {entry.nombre}
-                                </p>
-                                {!isReceta && entry.cantidad && (
-                                  <p className="text-[10px] text-slate-400">{entry.cantidad}g</p>
-                                )}
-                              </div>
-                            </div>
-                            <MacroChips m={entryMacros} size="xs" />
-                          </div>
-
-                          {/* Sub-lista de ingredientes (solo para recetas) */}
-                          {isReceta && (entry.ingredientes || []).length > 0 && (
-                            <table className="w-full text-xs border-collapse">
-                              <tbody>
-                                {(entry.ingredientes || []).map((ing, iIdx) => {
-                                  const ingM = ing.macros ?? calcIngMacros(ing)
-                                  return (
-                                    <tr key={iIdx} className="hover:bg-indigo-50/50 border-b border-indigo-50 last:border-0">
-                                      <td className="pl-10 pr-3 py-1.5 text-slate-600 font-medium max-w-[180px]">
-                                        <span className="truncate block" title={ing.nombre}>↳ {ing.nombre}</span>
-                                      </td>
-                                      <td className="px-3 py-1.5 text-slate-400 whitespace-nowrap">
-                                        {ing.cantidad}g
-                                      </td>
-                                      <td className="px-2 py-1.5 text-orange-600 font-bold text-right whitespace-nowrap">
-                                        {Math.round(ingM.calorias)} kcal
-                                      </td>
-                                      <td className="px-2 py-1.5 text-red-600 font-bold text-right whitespace-nowrap">
-                                        {Math.round(ingM.proteinas)}g P
-                                      </td>
-                                      <td className="px-2 py-1.5 text-amber-600 font-bold text-right whitespace-nowrap">
-                                        {Math.round(ingM.grasas)}g G
-                                      </td>
-                                      <td className="pr-4 py-1.5 text-lime-700 font-bold text-right whitespace-nowrap">
-                                        {Math.round(ingM.carbohidratos)}g C
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      )
-                    })}
+          {isMultiMenu ? (
+            /* ── Formato NUEVO: array de menús ────────────────────────── */
+            multiMenus.map((menuItem, menuIdx) => (
+              <div key={menuItem.id || menuIdx}>
+                {/* Título del sub-menú */}
+                {multiMenus.length > 1 && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-slate-200" />
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2">
+                      {menuItem.nombre || `Menú ${menuIdx + 1}`}
+                    </span>
+                    <div className="h-px flex-1 bg-slate-200" />
                   </div>
                 )}
+                {activeBlocks.map((bloque) => {
+                  const entries = (menuItem.meals || {})[bloque] || []
+                  const meta = MEAL_LABELS[bloque] || { label: bloque, color: 'bg-slate-100 text-slate-600' }
+                  return (
+                    <BloqueDetalle
+                      key={bloque}
+                      bloque={bloque}
+                      entries={entries}
+                      meta={meta}
+                    />
+                  )
+                })}
               </div>
-            )
-          })}
+            ))
+          ) : (
+            /* ── Formato ANTIGUO: objeto plano {bloque: [entries]} ────── */
+            activeBlocks.map((bloque) => {
+              const entries = mergedMeals[bloque] || []
+              const meta = MEAL_LABELS[bloque] || { label: bloque, color: 'bg-slate-100 text-slate-600' }
+              return (
+                <BloqueDetalle
+                  key={bloque}
+                  bloque={bloque}
+                  entries={entries}
+                  meta={meta}
+                />
+              )
+            })
+          )}
         </div>
 
       </div>
@@ -271,7 +349,7 @@ function DetalleModal({ plan, onClose }) {
       <ModalListaCompras
         isOpen={comprasOpen}
         onClose={() => setComprasOpen(false)}
-        meals={menu}
+        menus={isMultiMenu ? multiMenus : [{ id: 'unico', nombre: 'Menú', meals: mergedMeals }]}
         activeBlocks={activeBlocks}
       />
     </div>
