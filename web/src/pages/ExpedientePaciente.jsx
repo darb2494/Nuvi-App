@@ -119,6 +119,7 @@ export default function ExpedientePaciente() {
 
         // 2. Obtener datos personales pasando por anamnesis
         let dp = null;
+        let currentAnamnesisId = null;
         try {
           const { data: anamnesisData, error: anamnesisError } = await supabase
             .from('anamnesis')
@@ -127,6 +128,7 @@ export default function ExpedientePaciente() {
             .maybeSingle()
             
           if (!anamnesisError && anamnesisData) {
+            currentAnamnesisId = anamnesisData.id
             setAnamnesisId(anamnesisData.id)
             if (anamnesisData.datos_personales) {
               dp = Array.isArray(anamnesisData.datos_personales) 
@@ -181,12 +183,12 @@ export default function ExpedientePaciente() {
         }
 
         // 4. Obtener medidas históricas para gráficas
-        if (anamnesisData?.id) {
+        if (currentAnamnesisId) {
           try {
             const { data: medidasData } = await supabase
               .from('medidas_antropometricas')
               .select('fecha_medicion, peso_kg, masa_grasa_pct, masa_muscular_kg, indice_cintura_cadera')
-              .eq('anamnesis_id', anamnesisData.id)
+              .eq('anamnesis_id', currentAnamnesisId)
               .order('fecha_medicion', { ascending: true })
             if (medidasData && medidasData.length > 0) {
               setHistorialConsultas(medidasData.map(m => {
@@ -957,14 +959,16 @@ export default function ExpedientePaciente() {
       )}
 
       {/* ── Plantilla Maestra Oculta para Impresión (Off-Screen absoluto para que Recharts calcule dimensiones) ── */}
-      <div className="absolute -left-[10000px] top-0 print:static print:block w-full">
-        <DossierIntegralPrint
-          ref={dossierRef}
-          config={printConfig}
-          datos={datosTotalesDelPaciente}
-          data={datosTotalesDelPaciente}
-        />
-      </div>
+      {paciente && (
+        <div className="absolute -left-[10000px] top-0 print:static print:block w-full">
+          <DossierIntegralPrint
+            ref={dossierRef}
+            config={printConfig}
+            datos={datosTotalesDelPaciente}
+            data={datosTotalesDelPaciente}
+          />
+        </div>
+      )}
 
     </div>
   )
