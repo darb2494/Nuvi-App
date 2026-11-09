@@ -11,7 +11,7 @@ import {
 const printStyles = `
   @media print {
     @page {
-      margin: 18mm 15mm 22mm 15mm;
+      margin: 15mm 15mm 15mm 15mm;
       size: A4 portrait;
     }
     html, body {
@@ -21,29 +21,18 @@ const printStyles = `
       print-color-adjust: exact !important;
       font-size: 11pt;
     }
-    .print-header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 20mm;
-      background: white !important;
-      border-bottom: 2px solid #0f172a !important;
-      z-index: 1000;
+    table {
+      border-collapse: collapse;
+      width: 100% !important;
     }
-    .print-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 14mm;
-      background: white !important;
-      border-top: 1px solid #cbd5e1 !important;
-      z-index: 1000;
+    thead {
+      display: table-header-group !important;
     }
-    .print-page-content {
-      padding-top: 22mm;
-      padding-bottom: 16mm;
+    tfoot {
+      display: table-footer-group !important;
+    }
+    tbody {
+      display: table-row-group !important;
     }
     .page-break {
       page-break-before: always !important;
@@ -177,39 +166,45 @@ const DossierIntegralPrint = forwardRef(({ data, datos, config }, ref) => {
     <div ref={ref} className="bg-white text-slate-900 w-full font-sans antialiased">
       <style>{printStyles}</style>
 
-      {/* ── CABECERA GLOBAL REPETITIVA ─────────────────────────────────── */}
-      <div className="print-header flex items-center justify-between pb-3 bg-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-teal-600 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-sm print:bg-teal-700">
-            N
-          </div>
-          <div>
-            <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight print:text-black">
-              DOSSIER CLÍNICO & PLAN NUTRICIONAL
-            </h1>
-            <p className="text-[10px] text-teal-700 font-extrabold uppercase tracking-widest print:text-teal-900">
-              Nuvi · Sistema Integral de Salud y Nutrición
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold text-slate-800 print:text-black">
-            Paciente: <span className="text-teal-700 font-black">{nombrePaciente}</span>
-          </p>
-          <p className="text-[10px] text-slate-500 font-semibold print:text-gray-600">
-            Fecha de Emisión: {fecha}
-          </p>
-        </div>
-      </div>
+      {/* ── 1. ESTRUCTURA BASE DE TABLA (PRINT TABLE PATTERN) ─────────── */}
+      <table className="w-full print:w-full border-collapse">
 
-      {/* ── PIE DE PÁGINA GLOBAL REPETITIVO ────────────────────────────── */}
-      <div className="print-footer flex items-center justify-between pt-2 text-[9px] text-slate-500 bg-white">
-        <span>Documento confidencial para uso exclusivo del paciente y su especialista.</span>
-        <span className="font-bold">Nuvi Nutrition Platform</span>
-      </div>
+        {/* ── 2. EL ENCABEZADO (THEAD REPETITIVO) ──────────────────────── */}
+        <thead className="w-full">
+          <tr>
+            <td className="w-full p-0 pb-4 border-none">
+              <div className="flex items-center justify-between pb-3 border-b-2 border-slate-900 bg-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-teal-600 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-sm print:bg-teal-700">
+                    N
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight print:text-black">
+                      DOSSIER CLÍNICO & PLAN NUTRICIONAL
+                    </h1>
+                    <p className="text-[10px] text-teal-700 font-extrabold uppercase tracking-widest print:text-teal-900">
+                      Nuvi · Sistema Integral de Salud y Nutrición
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-800 print:text-black">
+                    Paciente: <span className="text-teal-700 font-black">{nombrePaciente}</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-semibold print:text-gray-600">
+                    Fecha de Emisión: {fecha}
+                  </p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </thead>
 
-      {/* ── CONTENIDO PRINCIPAL IMPRIMIBLE ─────────────────────────────── */}
-      <div className="print-page-content space-y-8">
+        {/* ── 3. EL CONTENIDO PRINCIPAL (TBODY) ────────────────────────── */}
+        <tbody className="w-full">
+          <tr>
+            <td className="w-full p-0 py-2 border-none">
+              <div className="space-y-8 w-full">
 
         {/* ===================================================================
             SECCIÓN 1: DATOS GENERALES Y RESUMEN ANTROPOMÉTRICO
@@ -676,7 +671,24 @@ const DossierIntegralPrint = forwardRef(({ data, datos, config }, ref) => {
           </section>
         )}
 
-      </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+
+        {/* ── 4. EL PIE DE PÁGINA (TFOOT REPETITIVO) ────────────────────── */}
+        <tfoot className="w-full">
+          <tr>
+            <td className="w-full p-0 pt-4 border-none">
+              <div className="flex items-center justify-between pt-2 border-t border-slate-300 text-[9px] text-slate-500 bg-white">
+                <span>Documento confidencial para uso exclusivo del paciente y su especialista.</span>
+                <span className="font-bold">Nuvi Nutrition Platform</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+
+      </table>
     </div>
   )
 })
