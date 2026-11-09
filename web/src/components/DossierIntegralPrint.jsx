@@ -341,7 +341,7 @@ const DossierIntegralPrint = forwardRef(({ data, datos, config }, ref) => {
             SECCIÓN 3: PLAN NUTRICIONAL (GRID DE MACROS + BLOQUES DE COMIDA)
             =================================================================== */}
         {(activeConfig.planNutricional ?? activeConfig.plan) && (
-          <section className="page-break border border-slate-200 rounded-2xl p-6 bg-white print:border-slate-300">
+          <section className="page-break border border-slate-200 rounded-2xl p-6 bg-white print:border-slate-300 w-full">
             <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
               <Utensils className="w-5 h-5 text-amber-600" />
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider print:text-black">
@@ -350,7 +350,7 @@ const DossierIntegralPrint = forwardRef(({ data, datos, config }, ref) => {
             </div>
 
             {/* GRID DE REQUERIMIENTOS FORZADO PARA IMPRESIÓN */}
-            <div className="grid grid-cols-4 gap-4 print:grid-cols-4 mb-6">
+            <div className="grid grid-cols-4 gap-4 print:grid-cols-4 mb-6 w-full">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center print:bg-amber-50">
                 <span className="block text-[11px] font-bold text-amber-800 uppercase tracking-wider print:text-gray-700">
                   Calorías Totales
@@ -385,75 +385,130 @@ const DossierIntegralPrint = forwardRef(({ data, datos, config }, ref) => {
               </div>
             </div>
 
-            {/* LISTADO SECUENCIAL DE BLOQUES DE COMIDA Y RECETAS */}
-            <div className="space-y-4">
-              {Object.keys(mealsData).map((bloqueKey) => {
-                const meta = MEAL_META[bloqueKey] || { label: bloqueKey, icon: '🍽️', color: 'border-slate-200 bg-slate-50 text-slate-800' }
-                const items = mealsData[bloqueKey] || []
-                if (items.length === 0) return null
+            {/* LISTADO SECUENCIAL DE BLOQUES DE COMIDA Y RECETAS (ESTRUCTURA LINEAL Y ORDEN ESTRICTO) */}
+            <div className="flex flex-col gap-6 w-full mt-6 print:block">
+              {(() => {
+                const MEAL_ORDER_KEYS = [
+                  'desayuno',
+                  'media_manana',
+                  'almuerzo',
+                  'merienda_1',
+                  'merienda',
+                  'merienda_2',
+                  'cena',
+                  'merienda_noche'
+                ]
 
-                return (
-                  <div key={bloqueKey} className="no-break border border-slate-200 rounded-xl p-4 bg-white print:border-slate-300">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{meta.icon}</span>
-                        <h3 className="font-black text-sm text-slate-800 uppercase tracking-wider print:text-black">
-                          {meta.label}
-                        </h3>
+                const matchedLowerKeys = new Set()
+                const orderedKeys = []
+
+                // 1. Mapear en orden cronológico estricto
+                MEAL_ORDER_KEYS.forEach(orderKey => {
+                  const foundKey = Object.keys(mealsData).find(k => k.toLowerCase() === orderKey.toLowerCase())
+                  if (foundKey && Array.isArray(mealsData[foundKey]) && mealsData[foundKey].length > 0) {
+                    orderedKeys.push(foundKey)
+                    matchedLowerKeys.add(foundKey.toLowerCase())
+                  }
+                })
+
+                // 2. Incluir cualquier bloque adicional que no esté en la lista estándar
+                Object.keys(mealsData).forEach(k => {
+                  if (!matchedLowerKeys.has(k.toLowerCase()) && Array.isArray(mealsData[k]) && mealsData[k].length > 0) {
+                    orderedKeys.push(k)
+                  }
+                })
+
+                if (orderedKeys.length === 0) {
+                  return (
+                    <div className="w-full text-center py-6 text-slate-400 italic text-sm">
+                      Sin comidas registradas en este plan.
+                    </div>
+                  )
+                }
+
+                return orderedKeys.map((bloqueKey) => {
+                  const meta = MEAL_META[bloqueKey.toLowerCase()] || { 
+                    label: bloqueKey.charAt(0).toUpperCase() + bloqueKey.slice(1).replace(/_/g, ' '), 
+                    icon: '🍽️', 
+                    color: 'border-slate-200 bg-slate-50 text-slate-800' 
+                  }
+                  const items = mealsData[bloqueKey] || []
+
+                  return (
+                    <div 
+                      key={bloqueKey} 
+                      className="no-break w-full border border-slate-200 rounded-xl overflow-hidden bg-white mb-5 print:border-slate-300 print:mb-6"
+                    >
+                      {/* Cabecera del bloque: Fondo gris claro y título en mayúsculas */}
+                      <div className="bg-slate-100 print:bg-slate-100 px-4 py-2.5 border-b border-slate-200 print:border-slate-300 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">{meta.icon}</span>
+                          <h3 className="font-black text-xs sm:text-sm text-slate-900 uppercase tracking-wider print:text-black">
+                            {meta.label.toUpperCase()}
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-500 print:text-gray-600">
+                          {items.length} {items.length === 1 ? 'preparación' : 'preparaciones'}
+                        </span>
                       </div>
-                      <span className="text-xs font-semibold text-slate-500 print:text-gray-600">
-                        {items.length} {items.length === 1 ? 'preparación' : 'preparaciones'}
-                      </span>
-                    </div>
 
-                    <div className="space-y-3">
-                      {items.map((entry, idx) => {
-                        const isReceta = entry.tipo === 'receta'
-                        return (
-                          <div key={idx} className="border-b border-slate-100 last:border-0 pb-2">
-                            <div className="flex justify-between items-baseline mb-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-slate-900 print:text-black">
-                                  {isReceta ? `🍲 ${entry.nombre}` : `• ${entry.nombre}`}
-                                </span>
-                                {isReceta && (
-                                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full print:border print:border-indigo-300">
-                                    Receta
+                      {/* Contenido: Lista en una sola columna vertical (flex-col) */}
+                      <div className="flex flex-col divide-y divide-slate-100 w-full p-4 print:p-4">
+                        {items.map((entry, idx) => {
+                          const isReceta = entry.tipo === 'receta'
+                          const tieneIngredientes = isReceta && Array.isArray(entry.ingredientes) && entry.ingredientes.length > 0
+
+                          return (
+                            <div key={idx} className="py-3 first:pt-0 last:pb-0 w-full break-words">
+                              {/* Fila principal del alimento o receta */}
+                              <div className="flex items-start justify-between gap-4 w-full">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="font-bold text-sm text-slate-900 print:text-black break-words">
+                                    {isReceta ? `🍲 ${entry.nombre}` : `• ${entry.nombre}`}
                                   </span>
-                                )}
+                                  {isReceta && (
+                                    <span className="text-[9px] uppercase tracking-wider bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold px-1.5 py-0.5 rounded print:border-indigo-300 shrink-0">
+                                      Receta
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-xs font-bold text-slate-800 print:text-black whitespace-nowrap">
+                                    {entry.cantidad ? `${entry.cantidad}g` : ''}
+                                    {entry.calorias ? ` · ${Math.round(entry.calorias)} kcal` : ''}
+                                  </span>
+                                </div>
                               </div>
-                              <span className="text-xs font-bold text-slate-700 print:text-gray-800">
-                                {entry.cantidad ? `${entry.cantidad}g` : ''}
-                                {entry.calorias ? ` · ${Math.round(entry.calorias)} kcal` : ''}
-                              </span>
-                            </div>
 
-                            {/* Desglose de ingredientes si es receta */}
-                            {isReceta && entry.ingredientes && entry.ingredientes.length > 0 && (
-                              <div className="mt-2 pl-4 border-l-2 border-indigo-200 bg-indigo-50/30 p-2 rounded-r-lg print:bg-white print:border-indigo-400">
-                                <p className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-1 print:text-black">
-                                  Ingredientes:
-                                </p>
-                                <ul className="space-y-1 text-xs text-slate-600 print:text-gray-700">
-                                  {entry.ingredientes.map((ing, iIdx) => (
-                                    <li key={iIdx} className="flex justify-between">
-                                      <span>↳ {ing.nombre}</span>
-                                      <span className="text-slate-500 font-medium print:text-gray-600">
-                                        {ing.cantidad ? `${ing.cantidad}g` : ''} 
-                                        {ing.calorias ? ` (${Math.round(ing.calorias)} kcal)` : ''}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                              {/* Lista de ingredientes limpia para recetas */}
+                              {tieneIngredientes && (
+                                <div className="mt-2.5 bg-slate-50/70 border border-slate-200/80 rounded-lg p-3 w-full print:bg-white print:border-slate-300">
+                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 print:text-black">
+                                    Ingredientes:
+                                  </p>
+                                  <ul className="divide-y divide-slate-100 w-full text-xs">
+                                    {entry.ingredientes.map((ing, iIdx) => (
+                                      <li key={iIdx} className="py-1.5 flex items-center justify-between gap-4 w-full first:pt-0 last:pb-0">
+                                        <span className="text-slate-700 print:text-gray-800 break-words flex-1 min-w-0">
+                                          ↳ {ing.nombre}
+                                        </span>
+                                        <span className="text-slate-500 font-medium text-right shrink-0 print:text-gray-700 whitespace-nowrap">
+                                          {ing.cantidad ? `${ing.cantidad}g` : ''} 
+                                          {ing.calorias ? ` (${Math.round(ing.calorias)} kcal)` : ''}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              })()}
             </div>
           </section>
         )}
